@@ -2,11 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, Zap, Brain, Shield, Sofa, CarFront, Sparkles, AlertCircle, ChevronRight, Upload, FileText, Database, Copy, Edit, Save, Download, MessageSquare, Send } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { GoogleGenAI } from '@google/genai';
 import * as XLSX from 'xlsx';
 import { marked } from 'marked';
-
-
 
 const DIMENSIONS = [
   { id: 'power', label: '动力', icon: Zap },
@@ -25,7 +22,6 @@ interface AnalysisData {
   summary: string;
   strategy: string;
 }
-
 
 export default function App() {
   const [heroCar, setHeroCar] = useState<CarInfo>({ id: 'hero', name: '' });
@@ -104,7 +100,6 @@ export default function App() {
       } else {
         try {
           const base64 = await fileToBase64(file);
-          // Set appropriate mime types for PPTX and DOCX if not correctly identified by browser
           let finalMimeType = file.type || 'application/octet-stream';
           if (file.name.endsWith('.docx')) {
             finalMimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -145,7 +140,7 @@ export default function App() {
     lines.forEach(line => {
       let trimmed = line.trim();
       if (!trimmed.startsWith('|')) return;
-      if (trimmed.includes('---')) return; // header separator
+      if (trimmed.includes('---')) return;
       const cells = trimmed.split('|').slice(1, -1).map(c => c.trim());
       aoa.push(cells);
     });
@@ -241,38 +236,27 @@ export default function App() {
     setAnalysisData(null);
 
     const promptText = generateAnalyzePrompt();
-    const parts: any[] = [{ text: promptText }];
-    
-    referenceFiles.forEach(f => {
-      parts.push({
-        inlineData: {
-          mimeType: f.mimeType,
-          data: f.data
-        }
-      });
-    });
-
-    const newHistory = [{ role: 'user', parts }];
+    const newHistory = [{ role: 'user', parts: [{ text: promptText }] }];
 
     try {
-// 向我们自己写的 Vercel 云函数发起请求，不再直接请求 Google
-const response = await fetch('/api/generate', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({ prompt: prompt }), // 注意这里的 prompt 变量名要和你代码里原有的保持一致
-});
+      console.log("准备发送给后端的提示词长度:", promptText.length);
+      
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: promptText }), 
+      });
 
-const data = await response.json();
+      const data = await response.json();
 
-if (!response.ok) {
-  throw new Error(data.error || '请求失败');
-}
+      if (!response.ok) {
+        throw new Error(data.error || '请求失败');
+      }
 
-// 这里的 data.text 就是原来 response.text 的位置
-// 把它赋值给原来的变量，或者直接用它去更新页面状态
-const dataText = data.text;
+      const text = data.text;
+
       try {
         const json = JSON.parse(text);
         setAnalysisData(json);
@@ -294,15 +278,27 @@ const dataText = data.text;
     setError('');
     setIsAnalyzing(true);
 
-    const newMsg = {
-      role: 'user',
-      parts: [{ text: `我们在以上内容的上下文下继续探讨。用户新的要求或输入：\n\n${followUpMsg}\n\n请严格返回和之前一样的JSON对象结构，在之前内容基础上修改/扩充：{"comparisonTable": "...", "summary": "...", "strategy": "..."}` }]
-    };
-
-    const newHistory = [...conversationHistory, newMsg];
+    const followUpPrompt = `我们在以上内容的上下文下继续探讨。这是之前的分析结果：\n${JSON.stringify(analysisData)}\n\n用户新的要求或输入：\n\n${followUpMsg}\n\n请严格返回和之前一样的JSON对象结构，在之前内容基础上修改/扩充：{"comparisonTable": "...", "summary": "...", "strategy": "..."}`;
+    
+    const newHistory = [...conversationHistory, { role: 'user', parts: [{ text: followUpPrompt }] }];
 
     try {
-'/api/generate'
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: followUpPrompt }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || '请求失败');
+      }
+
+      const text = data.text;
+
       try {
         const json = JSON.parse(text);
         setAnalysisData(json);
@@ -321,7 +317,6 @@ const dataText = data.text;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
-      {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -335,7 +330,6 @@ const dataText = data.text;
       </header>
 
       <main className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Error Message */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-start gap-3 mb-6">
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
@@ -344,11 +338,7 @@ const dataText = data.text;
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* Left Column: Inputs & Config */}
           <div className="lg:col-span-4 space-y-6 flex flex-col">
-            
-            {/* 1. Dimension Selection */}
             <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
               <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-sm">1</span>
@@ -376,14 +366,12 @@ const dataText = data.text;
               </div>
             </section>
 
-            {/* 2. Cars Setup */}
             <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
               <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-sm">2</span>
                 出战车型设定
               </h2>
               <div className="space-y-5">
-                {/* Hero Car */}
                 <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
                   <label className="block text-sm font-bold text-blue-900 mb-2">本品 (我方主推) <span className="text-red-500">*</span></label>
                   <input
@@ -395,7 +383,6 @@ const dataText = data.text;
                   />
                 </div>
 
-                {/* Competitors */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-sm font-bold text-slate-700">竞品阵列 <span className="text-red-500">*</span></label>
@@ -434,7 +421,6 @@ const dataText = data.text;
               </div>
             </section>
 
-            {/* 3. Reference Database */}
             <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex-1 flex flex-col">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -496,7 +482,6 @@ const dataText = data.text;
               </div>
             </section>
 
-            {/* Analyze Action */}
             <button
               onClick={handleAnalyze}
               disabled={isAnalyzing}
@@ -520,7 +505,6 @@ const dataText = data.text;
             </button>
           </div>
 
-          {/* Right Column: Results */}
           <div className="lg:col-span-8 flex flex-col gap-6">
             {!analysisData && !isAnalyzing ? (
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-10 transition-opacity duration-300 h-full min-h-[600px] flex flex-col items-center justify-center text-center py-20 opacity-50">
@@ -546,7 +530,6 @@ const dataText = data.text;
               </div>
             ) : analysisData ? (
               <>
-                {/* 1. Comparison Table Section */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                   <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center justify-between">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
@@ -586,7 +569,6 @@ const dataText = data.text;
                   </div>
                 </div>
 
-                {/* 2. Summary Section */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                   <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center justify-between">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
@@ -621,7 +603,6 @@ const dataText = data.text;
                   </div>
                 </div>
 
-                {/* 3. Strategy Section */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                   <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center justify-between">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
@@ -656,7 +637,6 @@ const dataText = data.text;
                   </div>
                 </div>
 
-                {/* Feedback Chat Box */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sticky bottom-6 z-10 shadow-xl shadow-slate-200/50">
                   <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
                     <MessageSquare className="w-4 h-4 text-blue-500" />
