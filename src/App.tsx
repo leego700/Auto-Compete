@@ -6,7 +6,7 @@ import { GoogleGenAI } from '@google/genai';
 import * as XLSX from 'xlsx';
 import { marked } from 'marked';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
 
 const DIMENSIONS = [
   { id: 'power', label: '动力', icon: Zap },
@@ -255,16 +255,31 @@ export default function App() {
     const newHistory = [{ role: 'user', parts }];
 
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: newHistory,
-        config: {
-          tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json"
-        }
-      });
-      
-      const text = response.text || "{}";
+      // 假设你整理好的提词数据叫做 userPrompt
+try {
+  // 向我们自己写的 Vercel 云函数发起请求，不再直接请求 Google
+  const response = await fetch('/api/generate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ prompt: userPrompt }), // 把前端的提示词传给后端
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || '请求失败');
+  }
+
+  // 成功拿到数据，渲染到页面上
+  console.log("AI 返回的结果:", data.text);
+  // 这里将 data.text 赋值给你的状态（比如 setReport(data.text)）
+
+} catch (error) {
+  console.error("生成失败:", error);
+  alert("生成失败，请查看控制台日志");
+}
       try {
         const json = JSON.parse(text);
         setAnalysisData(json);
@@ -294,16 +309,31 @@ export default function App() {
     const newHistory = [...conversationHistory, newMsg];
 
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: newHistory,
-        config: {
-          tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json"
-        }
-      });
-      
-      const text = response.text || "{}";
+     // 假设你整理好的提词数据叫做 userPrompt
+try {
+  // 向我们自己写的 Vercel 云函数发起请求，不再直接请求 Google
+  const response = await fetch('/api/generate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ prompt: userPrompt }), // 把前端的提示词传给后端
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || '请求失败');
+  }
+
+  // 成功拿到数据，渲染到页面上
+  console.log("AI 返回的结果:", data.text);
+  // 这里将 data.text 赋值给你的状态（比如 setReport(data.text)）
+
+} catch (error) {
+  console.error("生成失败:", error);
+  alert("生成失败，请查看控制台日志");
+}
       try {
         const json = JSON.parse(text);
         setAnalysisData(json);
