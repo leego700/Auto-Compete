@@ -255,31 +255,24 @@ export default function App() {
     const newHistory = [{ role: 'user', parts }];
 
     try {
-      // 假设你整理好的提词数据叫做 userPrompt
-try {
-  // 向我们自己写的 Vercel 云函数发起请求，不再直接请求 Google
-  const response = await fetch('/api/generate', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ prompt: userPrompt }), // 把前端的提示词传给后端
-  });
+// 向我们自己写的 Vercel 云函数发起请求，不再直接请求 Google
+const response = await fetch('/api/generate', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({ prompt: prompt }), // 注意这里的 prompt 变量名要和你代码里原有的保持一致
+});
 
-  const data = await response.json();
+const data = await response.json();
 
-  if (!response.ok) {
-    throw new Error(data.error || '请求失败');
-  }
-
-  // 成功拿到数据，渲染到页面上
-  console.log("AI 返回的结果:", data.text);
-  // 这里将 data.text 赋值给你的状态（比如 setReport(data.text)）
-
-} catch (error) {
-  console.error("生成失败:", error);
-  alert("生成失败，请查看控制台日志");
+if (!response.ok) {
+  throw new Error(data.error || '请求失败');
 }
+
+// 这里的 data.text 就是原来 response.text 的位置
+// 把它赋值给原来的变量，或者直接用它去更新页面状态
+const dataText = data.text;
       try {
         const json = JSON.parse(text);
         setAnalysisData(json);
@@ -309,31 +302,7 @@ try {
     const newHistory = [...conversationHistory, newMsg];
 
     try {
-     // 假设你整理好的提词数据叫做 userPrompt
-try {
-  // 向我们自己写的 Vercel 云函数发起请求，不再直接请求 Google
-  const response = await fetch('/api/generate', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ prompt: userPrompt }), // 把前端的提示词传给后端
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || '请求失败');
-  }
-
-  // 成功拿到数据，渲染到页面上
-  console.log("AI 返回的结果:", data.text);
-  // 这里将 data.text 赋值给你的状态（比如 setReport(data.text)）
-
-} catch (error) {
-  console.error("生成失败:", error);
-  alert("生成失败，请查看控制台日志");
-}
+'/api/generate'
       try {
         const json = JSON.parse(text);
         setAnalysisData(json);
